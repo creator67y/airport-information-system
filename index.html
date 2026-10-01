@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Международный аэропорт «Северный» — Информационная система</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- ===================================================================
+             ШАПКА: Название аэропорта, часы и кнопка моделирования состояний
+             =================================================================== -->
+        <header class="header">
+            <div class="header-branding">
+                <div class="airport-logo">
+                    <span class="plane-icon">✈</span>
+                </div>
+                <div class="header-titles">
+                    <div class="sub-title">Онлайн-табло и информационная система</div>
+                    <h1 class="main-title">Международный аэропорт «Северный»</h1>
+                    <div class="airport-code-tag">Терминалы A, B, C • Круглосуточно</div>
+                </div>
+            </div>
+
+            <div class="header-right-panel">
+                <div class="header-clock-panel">
+                    <div class="clock-label">Текущее время</div>
+                    <div class="clock-time" id="currentTime">00:00:00</div>
+                    <div class="clock-date" id="currentDate">Загрузка даты...</div>
+                </div>
+
+                <!-- Кнопка демонстрации модели информационных процессов -->
+                <button id="openDemoBtn" class="demo-trigger-btn" title="Демонстрация смены статусов рейса">
+                    <span class="demo-icon">⚡</span>
+                    <span>Демо: изменить статус</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===================================================================
+             ГЛАВНАЯ НАВИГАЦИЯ МЕЖДУ 5 РАЗДЕЛАМИ
+             =================================================================== -->
+        <nav class="main-navigation" aria-label="Разделы информационной системы">
+            <button class="nav-tab active" data-tab="departures">
+                <span class="nav-icon">🛫</span>
+                <span class="nav-text">Вылеты</span>
+                <span class="nav-badge" id="departuresCountBadge">0</span>
+            </button>
+            <button class="nav-tab" data-tab="arrivals">
+                <span class="nav-icon">🛬</span>
+                <span class="nav-text">Прилёты</span>
+                <span class="nav-badge" id="arrivalsCountBadge">0</span>
+            </button>
+            <button class="nav-tab" data-tab="search">
+                <span class="nav-icon">🔍</span>
+                <span class="nav-text">Найти рейс</span>
+            </button>
+            <button class="nav-tab" data-tab="map">
+                <span class="nav-icon">🗺️</span>
+                <span class="nav-text">Карта полёта</span>
+            </button>
+            <button class="nav-tab" data-tab="events">
+                <span class="nav-icon">ℹ️</span>
+                <span class="nav-text">Информация</span>
+                <span class="nav-badge new-event-badge" id="eventsCountBadge">0</span>
+            </button>
+        </nav>
+
+        <!-- ===================================================================
+             РАЗДЕЛ 1: ВЫЛЕТЫ
+             =================================================================== -->
+        <section id="departuresSection" class="tab-content active">
+            <!-- Статистика вылетов -->
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span class="stat-label">Всего вылетов</span>
+                    <span class="stat-value" id="statDepTotal">0</span>
+                </div>
+                <div class="stat-card stat-checkin">
+                    <span class="stat-label">Регистрация</span>
+                    <span class="stat-value" id="statDepCheckin">0</span>
+                </div>
+                <div class="stat-card stat-boarding">
+                    <span class="stat-label">Посадка</span>
+                    <span class="stat-value" id="statDepBoarding">0</span>
+                </div>
+                <div class="stat-card stat-delayed">
+                    <span class="stat-label">Задержаны</span>
+                    <span class="stat-value" id="statDepDelayed">0</span>
+                </div>
+                <div class="stat-card stat-departed">
+                    <span class="stat-label">Вылетели</span>
+                    <span class="stat-value" id="statDepDeparted">0</span>
+                </div>
+                <div class="stat-card stat-cancelled">
+                    <span class="stat-label">Отменены</span>
+                    <span class="stat-value" id="statDepCancelled">0</span>
+                </div>
+            </div>
+
+            <!-- Управление: поиск и фильтрация вылетов -->
+            <div class="controls-panel">
+                <div class="search-box">
+                    <label for="depSearchInput" class="control-label">Поиск вылета:</label>
+                    <div class="input-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input 
+                            type="text" 
+                            id="depSearchInput" 
+                            placeholder="Номер рейса (SU-1120) или пункт назначения (Сочи)..." 
+                            autocomplete="off"
+                        >
+                        <button type="button" id="depClearSearchBtn" class="clear-btn" title="Очистить поиск">✕</button>
+                    </div>
+                </div>
+
+                <div class="filter-box">
+                    <label for="depStatusFilter" class="control-label">Статус рейса:</label>
+                    <select id="depStatusFilter" class="status-select">
+                        <option value="Все">Все статусы</option>
+                        <option value="По расписанию">По расписанию</option>
+                        <option value="Регистрация">Регистрация</option>
+                        <option value="Регистрация завершена">Регистрация завершена</option>
+                        <option value="Посадка">Посадка</option>
+                        <option value="Задержан">Задержан</option>
+                        <option value="Вылетел">Вылетел</option>
+                        <option value="Отменён">Отменён</option>
+                    </select>
+                </div>
+
+                <div class="refresh-box">
+                    <button id="depRefreshBtn" class="refresh-button">
+                        <span class="refresh-icon">🔄</span>
+                        <span>Обновить данные</span>
+                    </button>
+                    <div class="last-update">
+                        Обновлено: <span id="depLastUpdateTime">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Табло вылетов -->
+            <div class="board-container">
+                <div class="table-responsive">
+                    <table class="flights-table" id="depFlightsTable">
+                        <thead>
+                            <tr>
+                                <th>Рейс</th>
+                                <th>Авиакомпания</th>
+                                <th>Пункт назначения</th>
+                                <th>План</th>
+                                <th>Факт / Ожид.</th>
+                                <th>Стойки</th>
+                                <th>Выход</th>
+                                <th>Статус рейса</th>
+                            </tr>
+                        </thead>
+                        <tbody id="depFlightsTableBody">
+                            <!-- Заполняется динамически -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Карточки для мобильных устройств -->
+                <div class="cards-container" id="depFlightsCardsContainer"></div>
+
+                <!-- Пустое состояние -->
+                <div class="no-results" id="depNoResults" style="display: none;">
+                    <div class="no-results-icon">🛫</div>
+                    <h3>Рейсы не найдены</h3>
+                    <p>По вашему запросу вылетов не найдено. Попробуйте изменить параметры поиска или фильтра.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             РАЗДЕЛ 2: ПРИЛЁТЫ
+             =================================================================== -->
+        <section id="arrivalsSection" class="tab-content">
+            <!-- Статистика прилётов -->
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span class="stat-label">Всего прилётов</span>
+                    <span class="stat-value" id="statArrTotal">0</span>
+                </div>
+                <div class="stat-card stat-expected">
+                    <span class="stat-label">По расписанию</span>
+                    <span class="stat-value" id="statArrOnTime">0</span>
+                </div>
+                <div class="stat-card stat-landed">
+                    <span class="stat-label">Приземлились</span>
+                    <span class="stat-value" id="statArrLanded">0</span>
+                </div>
+                <div class="stat-card stat-baggage">
+                    <span class="stat-label">Выдача багажа</span>
+                    <span class="stat-value" id="statArrBaggage">0</span>
+                </div>
+                <div class="stat-card stat-delayed">
+                    <span class="stat-label">Задерживаются</span>
+                    <span class="stat-value" id="statArrDelayed">0</span>
+                </div>
+                <div class="stat-card stat-cancelled">
+                    <span class="stat-label">Отменены</span>
+                    <span class="stat-value" id="statArrCancelled">0</span>
+                </div>
+            </div>
+
+            <!-- Управление: поиск и фильтрация прилётов -->
+            <div class="controls-panel">
+                <div class="search-box">
+                    <label for="arrSearchInput" class="control-label">Поиск прилёта:</label>
+                    <div class="input-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input 
+                            type="text" 
+                            id="arrSearchInput" 
+                            placeholder="Номер рейса (SU-1420) или пункт отправления (Сочи)..." 
+                            autocomplete="off"
+                        >
+                        <button type="button" id="arrClearSearchBtn" class="clear-btn" title="Очистить поиск">✕</button>
+                    </div>
+                </div>
+
+                <div class="filter-box">
+                    <label for="arrStatusFilter" class="control-label">Статус рейса:</label>
+                    <select id="arrStatusFilter" class="status-select">
+                        <option value="Все">Все статусы</option>
+                        <option value="По расписанию">По расписанию</option>
+                        <option value="Задерживается">Задерживается</option>
+                        <option value="Приземлился">Приземлился</option>
+                        <option value="Выдача багажа">Выдача багажа</option>
+                        <option value="Завершён">Завершён</option>
+                        <option value="Отменён">Отменён</option>
+                    </select>
+                </div>
+
+                <div class="refresh-box">
+                    <button id="arrRefreshBtn" class="refresh-button">
+                        <span class="refresh-icon">🔄</span>
+                        <span>Обновить данные</span>
+                    </button>
+                    <div class="last-update">
+                        Обновлено: <span id="arrLastUpdateTime">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Табло прилётов -->
+            <div class="board-container">
+                <div class="table-responsive">
+                    <table class="flights-table" id="arrFlightsTable">
+                        <thead>
+                            <tr>
+                                <th>Рейс</th>
+                                <th>Авиакомпания</th>
+                                <th>Пункт отправления</th>
+                                <th>План</th>
+                                <th>Факт / Ожид.</th>
+                                <th>Выдача багажа</th>
+                                <th>Статус рейса</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arrFlightsTableBody">
+                            <!-- Заполняется динамически -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Карточки для мобильных устройств -->
+                <div class="cards-container" id="arrFlightsCardsContainer"></div>
+
+                <!-- Пустое состояние -->
+                <div class="no-results" id="arrNoResults" style="display: none;">
+                    <div class="no-results-icon">🛬</div>
+                    <h3>Рейсы не найдены</h3>
+                    <p>По вашему запросу прибытий не найдено. Попробуйте изменить параметры поиска или фильтра.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             РАЗДЕЛ 3: НАЙТИ РЕЙС (ПОДРОБНАЯ КАРТОЧКА РЕЙСА)
+             =================================================================== -->
+        <section id="searchSection" class="tab-content">
+            <div class="search-page-header">
+                <h2>Персональный поиск рейса</h2>
+                <p>Введите номер рейса или город, чтобы получить подробную информационную карточку пассажира</p>
+            </div>
+
+            <div class="search-bar-prominent">
+                <div class="input-wrapper-large">
+                    <span class="search-icon-large">🔎</span>
+                    <input 
+                        type="text" 
+                        id="globalSearchInput" 
+                        placeholder="Например: SU-1120, DP-684, Сочи, Казань, Санкт-Петербург..." 
+                        autocomplete="off"
+                    >
+                    <button id="globalSearchBtn" class="btn-primary">Найти</button>
+                </div>
+
+                <!-- Быстрые примеры для демонстрации -->
+                <div class="quick-search-tags">
+                    <span class="quick-tags-label">Примеры:</span>
+                    <button class="quick-tag" data-query="SU-1120">SU-1120 (Вылет: регистрация)</button>
+                    <button class="quick-tag" data-tag="DP-684" data-query="DP-684">DP-684 (Вылет: задержан)</button>
+                    <button class="quick-tag" data-tag="SU-1190" data-query="SU-1190">SU-1190 (Прилёт: багаж)</button>
+                    <button class="quick-tag" data-tag="Сочи" data-query="Сочи">город Сочи</button>
+                </div>
+            </div>
+
+            <!-- Результаты поиска (Карточки найденных рейсов) -->
+            <div id="searchResultsContainer" class="search-results-list">
+                <!-- Заполняется динамически -->
+            </div>
+
+            <div id="searchPlaceholder" class="search-placeholder">
+                <div class="placeholder-icon">📋</div>
+                <h3>Введите номер рейса или город для поиска</h3>
+                <p>Система выполнит поиск среди всех вылетающих и прибывающих рейсов аэропорта «Северный»</p>
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             РАЗДЕЛ 4: КАРТА ПОЛЁТА
+             =================================================================== -->
+        <section id="mapSection" class="tab-content">
+            <div class="map-section-header">
+                <div>
+                    <h2>Карта полёта</h2>
+                    <p>Информационный модуль визуализации маршрутов авиарейсов</p>
+                </div>
+            </div>
+
+            
+        </section>
+
+        <!-- ===================================================================
+             РАЗДЕЛ 5: ИНФОРМАЦИЯ (ЛЕНТА СОБЫТИЙ АЭРОПОРТА)
+             =================================================================== -->
+        <section id="eventsSection" class="tab-content">
+            <div class="events-page-header">
+                <div>
+                    <h2>Лента оперативных событий аэропорта</h2>
+                    <p>Хронология информационных оповещений пассажиров в реальном времени</p>
+                </div>
+                <div class="events-filter-wrapper">
+                    <label for="eventCategoryFilter" class="control-label">Фильтр оповещений:</label>
+                    <select id="eventCategoryFilter" class="status-select">
+                        <option value="Все">Все события</option>
+                        <option value="Регистрация">Регистрация</option>
+                        <option value="Посадка">Посадка</option>
+                        <option value="Выдача багажа">Выдача багажа</option>
+                        <option value="Задержка">Задержки и отмены</option>
+                        <option value="Прибытие">Прибытие и вылет</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Список событий -->
+            <div class="events-timeline" id="eventsTimeline">
+                <!-- Заполняется динамически -->
+            </div>
+        </section>
+
+        <!-- ===================================================================
+             МОДАЛЬНОЕ ОКНО: ДЕМОНСТРАЦИЯ СМЕНЫ СТАТУСОВ
+             =================================================================== -->
+        <div class="modal-backdrop" id="demoModal" style="display: none;">
+            <div class="modal-window">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">⚙️</span>
+                        <h3>Управление статусом рейса (Демонстрация)</h3>
+                    </div>
+                    <button class="modal-close-btn" id="closeDemoModalBtn">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-description">
+                        Каждый авиарейс проходит цепочку последовательных этапов.
+                        При каждом переходе система автоматически обновляет табло и формирует оперативное сообщение для пассажиров в разделе «Информация».
+                    </p>
+
+                    <div class="demo-form-group">
+                        <label for="demoFlightSelect" class="control-label">Выберите тестовый рейс:</label>
+                        <select id="demoFlightSelect" class="status-select">
+                            <!-- Заполняется рейсами -->
+                        </select>
+                    </div>
+
+                    <div class="demo-flight-state-box" id="demoCurrentStateBox">
+                        <div class="state-row">
+                            <span>Текущее состояние:</span>
+                            <span id="demoCurrentStateBadge" class="status-badge">—</span>
+                        </div>
+                        <div class="state-chain">
+                            <span class="state-chain-title">Жизненный цикл рейса:</span>
+                            <div id="demoStateChainView" class="state-chain-steps"></div>
+                        </div>
+                    </div>
+
+                    <div class="demo-actions-grid">
+                        <button id="demoNextStepBtn" class="btn-success">
+                            <span>➡️ Перевести в следующее состояние</span>
+                        </button>
+                        <button id="demoDelayBtn" class="btn-warning">
+                            <span>⚠️ Смоделировать задержку рейса</span>
+                        </button>
+                        <button id="demoCancelBtn" class="btn-danger">
+                            <span>🚫 Смоделировать отмену рейса</span>
+                        </button>
+                        <button id="demoGateChangeBtn" class="btn-info">
+                            <span>🚪 Сменить выход на посадку (Gate)</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="closeDemoModalFooterBtn" class="btn-secondary">Закрыть окно</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Всплывающие уведомления (Toast) о новых событиях -->
+        <div id="toastNotification" class="toast-notification"></div>
+
+        <!-- ===================================================================
+             ПОДВАЛ
+             =================================================================== -->
+        <footer class="footer">
+            <div class="footer-info">
+                <span>Учебный проект</span>
+                <span class="separator">•</span>
+                <span>Международный аэропорт «Северный»</span>
+                <span class="separator">•</span>
+                <span>Визуальное информирование пассажиров</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Подключение локального демонстрационного источника данных -->
+    <script src="flights.js"></script>
+    <!-- Подключение логики приложения -->
+    <script src="script.js"></script>
+</body>
+</html>

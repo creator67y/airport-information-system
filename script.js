@@ -264,14 +264,12 @@ function getDepartureTimeDisplay(flight) {
     return flight.scheduledTime || "—";
 }
 
-
-
 // Время прибытия: фактическое или ожидаемое
 function getArrivalTimeDisplay(flight) {
 
     if (flight.status === "Отменён") return "—";
 
-    // Если самолёт прибыл, показываем фактическое время
+    // Если самолёт уже прибыл, показываем фактическое время
     if (
         flight.actualArrivalAt ||
         ["Приземлился", "Выдача багажа", "Завершён"].includes(flight.status)
@@ -284,8 +282,10 @@ function getArrivalTimeDisplay(flight) {
         return flight.actualTime;
     }
 
-    return "—";
+    // Для остальных рейсов показываем плановое время
+    return flight.scheduledTime || "—";
 }
+
 /**
  * Расчет расстояния между координатами по формуле гаверсинусов (км)
  */
@@ -1205,7 +1205,7 @@ function updateFlightStatusesByTime(now = Date.now()) {
     // 2. АВТОМАТИЗАЦИЯ ПРИБЫВАЮЩИХ РЕЙСОВ
     // ==================================================
 
-    ARRIVALS_DATA.forEach(flight => {
+    ARRIVALS_DATA.forEach((flight, index) => {
 
         // Отменённые рейсы не участвуют в автоматизации
         if (flight.isCancelled || flight.status === "Отменён") {
@@ -1256,13 +1256,17 @@ function updateFlightStatusesByTime(now = Date.now()) {
                 formatMoscowTimeFromTimestamp(expectedTime);
         }
 
-        // При начале выдачи багажа проверяем наличие ленты
+        
+        // Автоматически назначаем багажную ленту
         if (
-            ["Выдача багажа", "Завершён"].includes(newStatus) &&
-            (!flight.baggageBelt || flight.baggageBelt === "—")
+            ["Приземлился", "Выдача багажа", "Завершён"].includes(newStatus) &&
+            (!flight.baggageBelt ||
+            ["—", "Уточняется"].includes(flight.baggageBelt))
         ) {
-            flight.baggageBelt = "Уточняется";
+            flight.baggageBelt = `Лента №${(index % 4) + 1}`;
+            arrivalsChanged = true;
         }
+
 
         if (oldStatus !== newStatus) {
 

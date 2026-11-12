@@ -666,7 +666,16 @@ body {
 
 .status-cancelled { background-color: var(--status-cancelled-bg); border-color: var(--status-cancelled-border); color: var(--status-cancelled-text); }
 .status-cancelled::before { background-color: var(--status-cancelled-text); }
+/* Ожидание подтверждения фактического события */
+.status-awaiting {
+    background-color: rgba(249, 115, 22, 0.15);
+    border-color: #ea580c;
+    color: #fdba74;
+}
 
+.status-awaiting::before {
+    background-color: #fdba74;
+}
 .delay-reason-note {
     font-size: 0.72rem;
     color: #fca5a5;
@@ -1437,6 +1446,8 @@ body {
     gap: 8px;
 }
 
+
+
 /* ==========================================================================
    Адаптивность (Медиа-запросы)
    ========================================================================== */
@@ -1511,5 +1522,231 @@ body {
 
     .route-arrow {
         transform: rotate(90deg);
+    }
+}
+
+
+/* ======================================================
+   КАРТА ПОЛЁТА
+   ====================================================== */
+
+.route-map-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 25px 0 20px;
+    flex-wrap: wrap;
+}
+
+.route-map-toolbar label {
+    font-weight: 600;
+}
+
+.route-map-toolbar select {
+    min-width: 240px;
+    padding: 11px 15px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 14px;
+}
+
+.route-map-summary {
+    background: #172033;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 20px;
+}
+
+.route-summary-header,
+.route-summary-cities,
+.route-summary-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+}
+
+.route-summary-number {
+    font-size: 21px;
+    font-weight: 700;
+    margin-right: 12px;
+}
+
+.route-summary-airline {
+    color: #94a3b8;
+}
+
+.route-summary-cities {
+    justify-content: flex-start;
+    margin: 25px 0;
+}
+
+.route-summary-cities > div {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.route-city-label,
+.route-summary-details span {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.route-summary-cities strong {
+    font-size: 18px;
+}
+
+.route-summary-arrow {
+    color: #38bdf8;
+    font-size: 25px;
+    margin: 0 15px;
+}
+
+.route-summary-details {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    border-top: 1px solid #334155;
+    padding-top: 18px;
+}
+
+.route-summary-details > div {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 140px;
+}
+
+.route-delay-note {
+    margin-top: 18px;
+    color: #fbbf24;
+    font-size: 14px;
+}
+
+.route-map-canvas {
+    width: 100%;
+    min-height: 300px;
+    background: #101b2d;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+#routeMapSvg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 300px;
+}
+
+.route-grid-line {
+    stroke: #334155;
+    stroke-width: 1;
+    stroke-dasharray: 4 8;
+}
+
+.route-map-caption {
+    fill: #64748b;
+    font-size: 13px;
+    letter-spacing: 2px;
+}
+
+.route-map-line {
+    fill: none;
+    stroke: #38bdf8;
+    stroke-width: 4;
+    stroke-dasharray: 10 7;
+}
+
+.route-map-line.route-cancelled {
+    stroke: #ef4444;
+    opacity: 0.6;
+}
+
+.route-map-origin {
+    fill: #22c55e;
+    stroke: #bbf7d0;
+    stroke-width: 3;
+}
+
+.route-map-destination {
+    fill: #38bdf8;
+    stroke: #bae6fd;
+    stroke-width: 3;
+}
+
+.route-map-city {
+    fill: #f8fafc;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.route-map-plane {
+    fill: #facc15;
+    font-size: 30px;
+}
+
+.route-map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-top: 18px;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.route-map-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-airport {
+    background: #22c55e;
+}
+
+.legend-city {
+    background: #38bdf8;
+}
+
+.legend-line {
+    width: 25px;
+    border-top: 3px dashed #38bdf8;
+}
+
+@media (max-width: 600px) {
+    .route-map-summary {
+        padding: 15px;
+    }
+
+    .route-summary-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .route-summary-cities strong {
+        font-size: 15px;
+    }
+
+    .route-summary-details {
+        gap: 18px;
+    }
+
+    .route-map-canvas {
+        overflow-x: auto;
+    }
+
+    #routeMapSvg {
+        min-width: 650px;
     }
 }

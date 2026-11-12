@@ -30,11 +30,7 @@
                     <div class="clock-date" id="currentDate">Загрузка даты...</div>
                 </div>
 
-                <!-- Кнопка демонстрации модели информационных процессов -->
-                <button id="openDemoBtn" class="demo-trigger-btn" title="Демонстрация смены статусов рейса">
-                    <span class="demo-icon">⚡</span>
-                    <span>Демо: изменить статус</span>
-                </button>
+
             </div>
         </header>
 
@@ -124,6 +120,7 @@
                         <option value="Регистрация завершена">Регистрация завершена</option>
                         <option value="Посадка">Посадка</option>
                         <option value="Задержан">Задержан</option>
+                        <option value="Ожидает подтверждения">Ожидает подтверждения</option>
                         <option value="Вылетел">Вылетел</option>
                         <option value="Отменён">Отменён</option>
                     </select>
@@ -228,6 +225,7 @@
                         <option value="Все">Все статусы</option>
                         <option value="По расписанию">По расписанию</option>
                         <option value="Задерживается">Задерживается</option>
+                        <option value="Ожидает подтверждения">Ожидает подтверждения</option>
                         <option value="Приземлился">Приземлился</option>
                         <option value="Выдача багажа">Выдача багажа</option>
                         <option value="Завершён">Завершён</option>
@@ -325,16 +323,35 @@
         <!-- ===================================================================
              РАЗДЕЛ 4: КАРТА ПОЛЁТА
              =================================================================== -->
+        
         <section id="mapSection" class="tab-content">
             <div class="map-section-header">
                 <div>
                     <h2>Карта полёта</h2>
-                    <p>Информационный модуль визуализации маршрутов авиарейсов</p>
+                    <p>Схематичное отображение маршрутов авиарейсов</p>
                 </div>
             </div>
 
-            
+            <div class="route-map-toolbar">
+                <label for="flightMapSelect">Выберите рейс:</label>
+                <select id="flightMapSelect">
+                    <option value="">Загрузка рейсов...</option>
+                </select>
+            </div>
+
+            <div id="flightMapSummary" class="route-map-summary"></div>
+
+            <div id="flightMapCanvas" class="route-map-canvas">
+                <p>Выберите рейс для отображения маршрута</p>
+            </div>
+
+            <div class="route-map-legend">
+                <span><i class="legend-dot legend-airport"></i> Аэропорт «Северный»</span>
+                <span><i class="legend-dot legend-city"></i> Пункт назначения</span>
+                <span><i class="legend-line"></i> Маршрут полёта</span>
+            </div>
         </section>
+
 
         <!-- ===================================================================
              РАЗДЕЛ 5: ИНФОРМАЦИЯ (ЛЕНТА СОБЫТИЙ АЭРОПОРТА)
@@ -364,62 +381,7 @@
             </div>
         </section>
 
-        <!-- ===================================================================
-             МОДАЛЬНОЕ ОКНО: ДЕМОНСТРАЦИЯ СМЕНЫ СТАТУСОВ
-             =================================================================== -->
-        <div class="modal-backdrop" id="demoModal" style="display: none;">
-            <div class="modal-window">
-                <div class="modal-header">
-                    <div class="modal-title">
-                        <span class="modal-icon">⚙️</span>
-                        <h3>Управление статусом рейса (Демонстрация)</h3>
-                    </div>
-                    <button class="modal-close-btn" id="closeDemoModalBtn">✕</button>
-                </div>
-                <div class="modal-body">
-                    <p class="modal-description">
-                        Каждый авиарейс проходит цепочку последовательных этапов.
-                        При каждом переходе система автоматически обновляет табло и формирует оперативное сообщение для пассажиров в разделе «Информация».
-                    </p>
-
-                    <div class="demo-form-group">
-                        <label for="demoFlightSelect" class="control-label">Выберите тестовый рейс:</label>
-                        <select id="demoFlightSelect" class="status-select">
-                            <!-- Заполняется рейсами -->
-                        </select>
-                    </div>
-
-                    <div class="demo-flight-state-box" id="demoCurrentStateBox">
-                        <div class="state-row">
-                            <span>Текущее состояние:</span>
-                            <span id="demoCurrentStateBadge" class="status-badge">—</span>
-                        </div>
-                        <div class="state-chain">
-                            <span class="state-chain-title">Жизненный цикл рейса:</span>
-                            <div id="demoStateChainView" class="state-chain-steps"></div>
-                        </div>
-                    </div>
-
-                    <div class="demo-actions-grid">
-                        <button id="demoNextStepBtn" class="btn-success">
-                            <span>➡️ Перевести в следующее состояние</span>
-                        </button>
-                        <button id="demoDelayBtn" class="btn-warning">
-                            <span>⚠️ Смоделировать задержку рейса</span>
-                        </button>
-                        <button id="demoCancelBtn" class="btn-danger">
-                            <span>🚫 Смоделировать отмену рейса</span>
-                        </button>
-                        <button id="demoGateChangeBtn" class="btn-info">
-                            <span>🚪 Сменить выход на посадку (Gate)</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="closeDemoModalFooterBtn" class="btn-secondary">Закрыть окно</button>
-                </div>
-            </div>
-        </div>
+        
 
         <!-- Всплывающие уведомления (Toast) о новых событиях -->
         <div id="toastNotification" class="toast-notification"></div>

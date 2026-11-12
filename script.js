@@ -1,18 +1,3 @@
-/* ==========================================================================
-   Информационная система аэропорта «Северный»
-   Логика приложения: script.js
-   --------------------------------------------------------------------------
-   Демонстрационные данные о рейсах, координатах городов, начальных событиях
-   и цепочках состояний вынесены в отдельный файл: flights.js
-   
-   script.js отвечает исключительно за поведение и логику:
-   - Обработка и фильтрация данных из flights.js;
-   - Вывод информации на табло вылетов и прилётов (таблица и мобильные карточки);
-   - Персональный поиск рейсов и формирование подробных карточек пассажиров;
-   - Построение интерактивной карты маршрутов и расчет телеметрии;
-   - Формирование хроники оперативных событий;
-   - Моделирование жизненных циклов и переходов между состояниями.
-   ========================================================================== */
 
 // ==========================================================================
 // РАЗДЕЛ 3: ССЫЛКИ НА ЭЛЕМЕНТЫ DOM
@@ -68,23 +53,15 @@ const globalSearchBtn = document.getElementById("globalSearchBtn");
 const searchResultsContainer = document.getElementById("searchResultsContainer");
 const searchPlaceholder = document.getElementById("searchPlaceholder");
 const quickTags = document.querySelectorAll(".quick-tag");
+// Раздел «Карта полёта»
+const flightMapSelect = document.getElementById("flightMapSelect");
+const flightMapSummary = document.getElementById("flightMapSummary");
+const flightMapCanvas = document.getElementById("flightMapCanvas");
 
 // Раздел «Информация» (Лента)
 const eventsTimeline = document.getElementById("eventsTimeline");
 const eventCategoryFilter = document.getElementById("eventCategoryFilter");
 
-// Модальное окно демонстрации процессов
-const openDemoBtn = document.getElementById("openDemoBtn");
-const demoModal = document.getElementById("demoModal");
-const closeDemoModalBtn = document.getElementById("closeDemoModalBtn");
-const closeDemoModalFooterBtn = document.getElementById("closeDemoModalFooterBtn");
-const demoFlightSelect = document.getElementById("demoFlightSelect");
-const demoCurrentStateBadge = document.getElementById("demoCurrentStateBadge");
-const demoStateChainView = document.getElementById("demoStateChainView");
-const demoNextStepBtn = document.getElementById("demoNextStepBtn");
-const demoDelayBtn = document.getElementById("demoDelayBtn");
-const demoCancelBtn = document.getElementById("demoCancelBtn");
-const demoGateChangeBtn = document.getElementById("demoGateChangeBtn");
 
 // Всплывающее уведомление
 const toastNotification = document.getElementById("toastNotification");
@@ -94,22 +71,146 @@ const toastNotification = document.getElementById("toastNotification");
 // ==========================================================================
 function updateClock() {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, "0");
-    const m = String(now.getMinutes()).padStart(2, "0");
-    const s = String(now.getSeconds()).padStart(2, "0");
-    currentTimeEl.textContent = `${h}:${m}:${s}`;
 
-    const dateOptions = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-    const dateStr = now.toLocaleDateString("ru-RU", dateOptions);
-    currentDateEl.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    // Получаем московское время
+    const timeOptions = {
+        timeZone: "Europe/Moscow",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+    };
+
+    currentTimeEl.textContent = new Intl.DateTimeFormat(
+        "ru-RU",
+        timeOptions
+    ).format(now);
+
+    // Получаем московскую дату
+    const dateOptions = {
+        timeZone: "Europe/Moscow",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    };
+
+    const dateStr = new Intl.DateTimeFormat(
+        "ru-RU",
+        dateOptions
+    ).format(now);
+
+    currentDateEl.textContent =
+        dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 }
 
 function getCurrentTimeString() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, "0");
-    const m = String(now.getMinutes()).padStart(2, "0");
-    const s = String(now.getSeconds()).padStart(2, "0");
-    return `${h}:${m}:${s}`;
+    return new Intl.DateTimeFormat("ru-RU", {
+        timeZone: "Europe/Moscow",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+    }).format(new Date());
+}
+// Получение текущей даты по московскому времени
+function getCurrentMoscowDateString() {
+    return new Intl.DateTimeFormat("ru-RU", {
+        timeZone: "Europe/Moscow",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+    }).format(new Date());
+}
+// ======================================================
+// СОХРАНЕНИЕ ДАННЫХ В LOCAL STORAGE
+// ======================================================
+
+// Получаем дату в московском часовом поясе
+function getMoscowDateKey() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Moscow",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(new Date());
+
+    const values = {};
+
+    parts.forEach(part => {
+        values[part.type] = part.value;
+    });
+
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+// Отдельное хранилище для каждого дня
+const AIRPORT_STORAGE_KEY =
+    `airportNorthernData_${getMoscowDateKey()}`;
+
+
+// Сохраняем данные аэропорта
+function saveAirportData() {
+    try {
+        const airportData = {
+            version: 1,
+            serviceDate: getMoscowDateKey(),
+            savedAt: new Date().toISOString(),
+
+            departures: DEPARTURES_DATA,
+            arrivals: ARRIVALS_DATA,
+            events: EVENTS_DATA
+        };
+
+        localStorage.setItem(
+            AIRPORT_STORAGE_KEY,
+            JSON.stringify(airportData)
+        );
+
+    } catch (error) {
+        console.error("Ошибка сохранения данных:", error);
+    }
+}
+
+
+// Загружаем сохранённые данные
+function loadAirportData() {
+    try {
+        const savedData = localStorage.getItem(
+            AIRPORT_STORAGE_KEY
+        );
+
+        if (!savedData) {
+            console.log("Сохранённых данных нет. Используются исходные данные.");
+            return false;
+        }
+
+        const airportData = JSON.parse(savedData);
+
+        // Проверяем структуру сохранённых данных
+        if (
+            airportData.version !== 1 ||
+            airportData.serviceDate !== getMoscowDateKey() ||
+            !Array.isArray(airportData.departures) ||
+            !Array.isArray(airportData.arrivals) ||
+            !Array.isArray(airportData.events)
+        ) {
+            console.warn("Сохранённые данные имеют неверный формат.");
+            return false;
+        }
+
+        DEPARTURES_DATA = airportData.departures;
+        ARRIVALS_DATA = airportData.arrivals;
+        EVENTS_DATA = airportData.events;
+
+        console.log("Данные аэропорта успешно загружены.");
+
+        return true;
+
+    } catch (error) {
+        console.error("Ошибка загрузки данных:", error);
+        return false;
+    }
 }
 
 function escapeHtml(text) {
@@ -130,6 +231,7 @@ function getStatusCssClass(status) {
         case "Посадка": return "status-boarding";
         case "Задержан":
         case "Задерживается": return "status-delayed";
+        case "Ожидает подтверждения": return "status-awaiting";
         case "Приземлился":
         case "Прибыл": return "status-arrived";
         case "Выдача багажа": return "status-baggage";
@@ -139,7 +241,51 @@ function getStatusCssClass(status) {
         default: return "status-ontime";
     }
 }
+// ======================================================
+// ОТОБРАЖЕНИЕ ВРЕМЕНИ РЕЙСОВ
+// ======================================================
 
+// Время вылета: фактическое или ожидаемое
+function getDepartureTimeDisplay(flight) {
+
+    if (flight.status === "Отменён") return "—";
+
+    // Если рейс уже вылетел, показываем фактическое время
+    if (flight.actualDepartureAt || flight.status === "Вылетел") {
+        return flight.actualTime || "—";
+    }
+
+    // Если рейс задерживается, показываем ожидаемое время
+    if (flight.isDelayed && flight.actualTime !== "—") {
+        return flight.actualTime;
+    }
+
+    // Для остальных рейсов показываем плановое время
+    return flight.scheduledTime || "—";
+}
+
+
+
+// Время прибытия: фактическое или ожидаемое
+function getArrivalTimeDisplay(flight) {
+
+    if (flight.status === "Отменён") return "—";
+
+    // Если самолёт прибыл, показываем фактическое время
+    if (
+        flight.actualArrivalAt ||
+        ["Приземлился", "Выдача багажа", "Завершён"].includes(flight.status)
+    ) {
+        return flight.actualTime || "—";
+    }
+
+    // При задержке показываем ожидаемое время прибытия
+    if (flight.isDelayed && flight.actualTime !== "—") {
+        return flight.actualTime;
+    }
+
+    return "—";
+}
 /**
  * Расчет расстояния между координатами по формуле гаверсинусов (км)
  */
@@ -153,6 +299,235 @@ function calculateDistanceKm(lat1, lon1, lat2, lon2) {
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return Math.round(R * c);
+}
+
+// ======================================================
+// ПОСТРОЕНИЕ СХЕМЫ МАРШРУТА ПОЛЁТА
+// ======================================================
+
+function renderFlightMap() {
+    const allFlights = [
+        ...DEPARTURES_DATA.map(f => ({
+            ...f,
+            flightType: "departure"
+        })),
+        ...ARRIVALS_DATA.map(f => ({
+            ...f,
+            flightType: "arrival"
+        }))
+    ];
+
+    // Заполняем список рейсов
+    const previousValue = flightMapSelect.value;
+
+    flightMapSelect.innerHTML = allFlights.map(flight => {
+        const direction = flight.flightType === "departure"
+            ? "Вылет"
+            : "Прилёт";
+
+        return `
+            <option value="${flight.flightType}|${escapeHtml(flight.flightNumber)}">
+                ${direction} — ${escapeHtml(flight.flightNumber)}
+            </option>
+        `;
+    }).join("");
+
+    // Сохраняем выбранный рейс при повторном обновлении
+    let selectedFlight = allFlights.find(f =>
+        `${f.flightType}|${f.flightNumber}` === previousValue
+    );
+
+    if (!selectedFlight) {
+        selectedFlight = allFlights.find(f => !f.isCancelled) || allFlights[0];
+    }
+
+    if (!selectedFlight) {
+        flightMapCanvas.innerHTML = "<p>Нет данных о рейсах</p>";
+        return;
+    }
+
+    flightMapSelect.value =
+        `${selectedFlight.flightType}|${selectedFlight.flightNumber}`;
+
+    const flight = selectedFlight;
+    const isDeparture = flight.flightType === "departure";
+
+    const originName = isDeparture
+        ? BASE_AIRPORT.city.split(" (")[0]
+        : flight.origin;
+
+    const destinationName = isDeparture
+        ? flight.destination
+        : BASE_AIRPORT.city.split(" (")[0];
+
+    const originCoords = isDeparture
+        ? BASE_AIRPORT
+        : CITIES_COORDINATES[flight.origin];
+
+    const destinationCoords = isDeparture
+        ? CITIES_COORDINATES[flight.destination]
+        : BASE_AIRPORT;
+
+    if (!originCoords || !destinationCoords) {
+        flightMapCanvas.innerHTML =
+            "<p>Координаты маршрута не найдены</p>";
+        return;
+    }
+
+    // Преобразование географических координат в координаты схемы
+    function projectPoint(lat, lon) {
+        return {
+            x: 70 + ((lon - 20) / 112) * 860,
+            y: 450 - ((lat - 40) / 21) * 360
+        };
+    }
+
+    const start = projectPoint(originCoords.lat, originCoords.lon);
+    const end = projectPoint(destinationCoords.lat, destinationCoords.lon);
+
+    // Контрольная точка создаёт дугу маршрута
+    const middleX = (start.x + end.x) / 2;
+    const middleY = Math.max(65, (start.y + end.y) / 2 - 85);
+
+    const routePath =
+        `M ${start.x} ${start.y} Q ${middleX} ${middleY} ${end.x} ${end.y}`;
+
+    // Положение условного самолёта в середине маршрута
+    const planeX = 0.25 * start.x + 0.5 * middleX + 0.25 * end.x;
+    const planeY = 0.25 * start.y + 0.5 * middleY + 0.25 * end.y;
+
+    const distance = calculateDistanceKm(
+        originCoords.lat,
+        originCoords.lon,
+        destinationCoords.lat,
+        destinationCoords.lon
+    );
+
+    const statusClass = getStatusCssClass(flight.status);
+    const isCancelled = flight.isCancelled || flight.status === "Отменён";
+
+    // Информация о рейсе
+    flightMapSummary.innerHTML = `
+        <div class="route-summary-header">
+            <div>
+                <span class="route-summary-number">
+                    ${escapeHtml(flight.flightNumber)}
+                </span>
+                <span class="route-summary-airline">
+                    ${escapeHtml(flight.airline)}
+                </span>
+            </div>
+
+            <span class="status-badge ${statusClass}">
+                ${escapeHtml(flight.status)}
+            </span>
+        </div>
+
+        <div class="route-summary-cities">
+            <div>
+                <span class="route-city-label">Откуда</span>
+                <strong>${escapeHtml(originName)}</strong>
+            </div>
+
+            <span class="route-summary-arrow">→</span>
+
+            <div>
+                <span class="route-city-label">Куда</span>
+                <strong>${escapeHtml(destinationName)}</strong>
+            </div>
+        </div>
+
+        <div class="route-summary-details">
+            <div>
+                <span>Плановое время</span>
+                <strong>${escapeHtml(flight.scheduledTime)}</strong>
+            </div>
+
+            <div>
+                <span>Факт / ожидание</span>
+                <strong>${escapeHtml(flight.actualTime)}</strong>
+            </div>
+
+            <div>
+                <span>Расстояние</span>
+                <strong>${distance.toLocaleString("ru-RU")} км</strong>
+            </div>
+        </div>
+
+        ${flight.delayReason && !isCancelled ? `
+            <div class="route-delay-note">
+                Причина задержки: ${escapeHtml(flight.delayReason)}
+            </div>
+        ` : ""}
+    `;
+
+    // Рисуем схему маршрута
+    flightMapCanvas.innerHTML = `
+        <svg viewBox="0 0 1000 520"
+             id="routeMapSvg"
+             role="img"
+             aria-label="Маршрут рейса ${escapeHtml(flight.flightNumber)}">
+
+            <defs>
+                <marker id="routeArrow"
+                        markerWidth="10"
+                        markerHeight="10"
+                        refX="8"
+                        refY="3"
+                        orient="auto">
+                    <path d="M0,0 L0,6 L9,3 Z" fill="#38bdf8"/>
+                </marker>
+            </defs>
+
+            <!-- Координатная сетка -->
+            ${Array.from({ length: 6 }, (_, i) => {
+                const x = 70 + i * 172;
+                return `<line x1="${x}" y1="45" x2="${x}" y2="450"
+                    class="route-grid-line"/>`;
+            }).join("")}
+
+            ${Array.from({ length: 5 }, (_, i) => {
+                const y = 70 + i * 90;
+                return `<line x1="55" y1="${y}" x2="950" y2="${y}"
+                    class="route-grid-line"/>`;
+            }).join("")}
+
+            <text x="75" y="35" class="route-map-caption">
+                СХЕМА МАРШРУТА
+            </text>
+
+            <!-- Линия маршрута -->
+            <path d="${routePath}"
+                  class="route-map-line ${isCancelled ? "route-cancelled" : ""}"
+                  marker-end="url(#routeArrow)"/>
+
+            <!-- Точка отправления -->
+            <circle cx="${start.x}" cy="${start.y}" r="10"
+                    class="route-map-origin"/>
+
+            <text x="${start.x}" y="${start.y + 28}"
+                  class="route-map-city"
+                  text-anchor="middle">
+                ${escapeHtml(originName)}
+            </text>
+
+            <!-- Точка назначения -->
+            <circle cx="${end.x}" cy="${end.y}" r="10"
+                    class="route-map-destination"/>
+
+            <text x="${end.x}" y="${end.y + 28}"
+                  class="route-map-city"
+                  text-anchor="middle">
+                ${escapeHtml(destinationName)}
+            </text>
+
+            <!-- Условное положение самолёта -->
+            <text x="${planeX}" y="${planeY}"
+                  class="route-map-plane"
+                  text-anchor="middle">✈</text>
+
+        </svg>
+    `;
 }
 
 /**
@@ -182,9 +557,16 @@ function renderDepartures() {
             flight.flightNumber.toLowerCase().includes(searchText) ||
             flight.destination.toLowerCase().includes(searchText);
 
-        const matchesStatus = filterStatus === "Все" || flight.status === filterStatus;
+    const matchesStatus =
+        filterStatus === "Все" ||
+        (
+            filterStatus === "Задержан"
+                ? flight.isDelayed &&
+                !["Вылетел", "Отменён"].includes(flight.status)
+                : flight.status === filterStatus
+        );
         return matchesSearch && matchesStatus;
-    });
+        });
 
     depFlightsTableBody.innerHTML = "";
     depFlightsCardsContainer.innerHTML = "";
@@ -200,8 +582,12 @@ function renderDepartures() {
 
         filtered.forEach((flight) => {
             const statusClass = getStatusCssClass(flight.status);
-            const isDelayed = flight.status === "Задержан";
 
+        const timeDisplay = getDepartureTimeDisplay(flight);
+
+        const isDelayed =
+            flight.isDelayed &&
+            !["Вылетел", "Отменён"].includes(flight.status);
             // Строка таблицы
             const row = document.createElement("tr");
             row.innerHTML = `
@@ -209,7 +595,7 @@ function renderDepartures() {
                 <td class="flight-airline">${escapeHtml(flight.airline)}</td>
                 <td><div class="flight-city">${escapeHtml(flight.destination)}</div></td>
                 <td class="flight-time">${escapeHtml(flight.scheduledTime)}</td>
-                <td class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(flight.actualTime)}</td>
+                <td class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(timeDisplay)}</td>
                 <td><span class="desk-badge">${escapeHtml(flight.checkinDesks)}</span></td>
                 <td><span class="gate-badge">${escapeHtml(flight.gate)}</span></td>
                 <td>
@@ -243,7 +629,7 @@ function renderDepartures() {
                     </div>
                     <div class="card-detail-item">
                         <span class="card-detail-label">Факт / Ожид.:</span>
-                        <span class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(flight.actualTime)}</span>
+                        <span class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(timeDisplay)}</span>
                     </div>
                     <div class="card-detail-item">
                         <span class="card-detail-label">Стойки регистрации:</span>
@@ -265,9 +651,13 @@ function renderDepartures() {
 
     // Обновление статистики вылетов
     statDepTotal.textContent = DEPARTURES_DATA.length;
-    statDepCheckin.textContent = DEPARTURES_DATA.filter(f => f.status === "Регистрация").length;
+    statDepCheckin.textContent = DEPARTURES_DATA.filter(
+        f => ["Регистрация", "Регистрация завершена"].includes(f.status)).length;   
     statDepBoarding.textContent = DEPARTURES_DATA.filter(f => f.status === "Посадка").length;
-    statDepDelayed.textContent = DEPARTURES_DATA.filter(f => f.status === "Задержан").length;
+    statDepDelayed.textContent = DEPARTURES_DATA.filter(
+        f => f.isDelayed &&
+        !["Вылетел", "Отменён"].includes(f.status)
+    ).length;
     statDepDeparted.textContent = DEPARTURES_DATA.filter(f => f.status === "Вылетел").length;
     statDepCancelled.textContent = DEPARTURES_DATA.filter(f => f.status === "Отменён").length;
     departuresCountBadge.textContent = DEPARTURES_DATA.length;
@@ -288,9 +678,16 @@ function renderArrivals() {
             flight.flightNumber.toLowerCase().includes(searchText) ||
             flight.origin.toLowerCase().includes(searchText);
 
-        const matchesStatus = filterStatus === "Все" || flight.status === filterStatus;
-        return matchesSearch && matchesStatus;
-    });
+        const matchesStatus =
+            filterStatus === "Все" ||
+            (
+                filterStatus === "Задерживается"
+                    ? flight.isDelayed &&
+                    !["Приземлился", "Выдача багажа", "Завершён", "Отменён"].includes(flight.status)
+                    : flight.status === filterStatus
+            );
+                return matchesSearch && matchesStatus;
+            });
 
     arrFlightsTableBody.innerHTML = "";
     arrFlightsCardsContainer.innerHTML = "";
@@ -306,8 +703,13 @@ function renderArrivals() {
 
         filtered.forEach((flight) => {
             const statusClass = getStatusCssClass(flight.status);
-            const isDelayed = flight.status === "Задерживается";
 
+            const timeDisplay = getArrivalTimeDisplay(flight);
+
+            const isDelayed =
+                flight.isDelayed &&
+                !["Приземлился", "Выдача багажа", "Завершён", "Отменён"]
+                    .includes(flight.status);
             // Строка таблицы
             const row = document.createElement("tr");
             row.innerHTML = `
@@ -315,7 +717,7 @@ function renderArrivals() {
                 <td class="flight-airline">${escapeHtml(flight.airline)}</td>
                 <td><div class="flight-city">${escapeHtml(flight.origin)}</div></td>
                 <td class="flight-time">${escapeHtml(flight.scheduledTime)}</td>
-                <td class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(flight.actualTime)}</td>
+                <td class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(timeDisplay)}</td>
                 <td>
                     ${flight.baggageBelt && flight.baggageBelt !== "—" 
                         ? `<span class="baggage-badge">${escapeHtml(flight.baggageBelt)}</span>` 
@@ -354,7 +756,7 @@ function renderArrivals() {
                     </div>
                     <div class="card-detail-item">
                         <span class="card-detail-label">Факт / Ожид.:</span>
-                        <span class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(flight.actualTime)}</span>
+                        <span class="flight-fact-time ${isDelayed ? 'delayed' : 'ontime'}">${escapeHtml(timeDisplay)}</span>
                     </div>
                     <div class="card-detail-item">
                         <span class="card-detail-label">Багажная лента:</span>
@@ -377,9 +779,14 @@ function renderArrivals() {
     // Обновление статистики прилётов
     statArrTotal.textContent = ARRIVALS_DATA.length;
     statArrOnTime.textContent = ARRIVALS_DATA.filter(f => f.status === "По расписанию").length;
-    statArrLanded.textContent = ARRIVALS_DATA.filter(f => f.status === "Приземлился").length;
+    statArrLanded.textContent = ARRIVALS_DATA.filter(
+        f => ["Приземлился", "Выдача багажа", "Завершён"].includes(f.status)
+    ).length;
     statArrBaggage.textContent = ARRIVALS_DATA.filter(f => f.status === "Выдача багажа").length;
-    statArrDelayed.textContent = ARRIVALS_DATA.filter(f => f.status === "Задерживается").length;
+    statArrDelayed.textContent = ARRIVALS_DATA.filter(
+        f => f.isDelayed &&
+        !["Приземлился", "Выдача багажа", "Завершён", "Отменён"].includes(f.status)
+    ).length;
     statArrCancelled.textContent = ARRIVALS_DATA.filter(f => f.status === "Отменён").length;
     arrivalsCountBadge.textContent = ARRIVALS_DATA.length;
 }
@@ -428,8 +835,18 @@ function performGlobalSearch(query) {
         const card = document.createElement("div");
         card.className = "detailed-flight-card";
 
-        const routeOrigin = isDep ? "Москва (Северный)" : flight.origin;
-        const routeDest = isDep ? flight.destination : "Москва (Северный)";
+        const airportCity = BASE_AIRPORT.city.split(" (")[0];
+
+        const routeOrigin = isDep ? airportCity : flight.origin;
+        const routeDest = isDep ? flight.destination : airportCity;
+
+        const timeDisplay = isDep
+            ? getDepartureTimeDisplay(flight)
+            : getArrivalTimeDisplay(flight);
+
+        const timeLabel = isDep
+            ? (flight.actualDepartureAt ? "Фактическое время вылета:" : "Ожидаемое время вылета:")
+            : (flight.actualArrivalAt ? "Фактическое время прибытия:" : "Ожидаемое время прибытия:");
 
         card.innerHTML = `
             <div class="card-header-bar">
@@ -463,8 +880,8 @@ function performGlobalSearch(query) {
                     <span class="info-value">${escapeHtml(flight.scheduledTime)}</span>
                 </div>
                 <div class="info-block">
-                    <span class="info-label">Актуальное время:</span>
-                    <span class="info-value ${flight.delayReason ? 'flight-fact-time delayed' : ''}">${escapeHtml(flight.actualTime)}</span>
+                    <span class="info-label">${timeLabel}</span>
+                    <span class="info-value ${flight.isDelayed ? 'flight-fact-time delayed' : ''}">${escapeHtml(timeDisplay)}</span>
                 </div>
                 ${isDep ? `
                 <div class="info-block">
@@ -531,7 +948,11 @@ function renderEvents() {
         else if (ev.type === "Прибытие" || ev.type === "Вылет") tagClass = "tag-arrival";
 
         card.innerHTML = `
-            <div class="event-time">${escapeHtml(ev.time)}</div>
+            <div class="event-time">
+                ${escapeHtml(ev.date || getCurrentMoscowDateString())}
+                <br>
+                ${escapeHtml(ev.time)}
+            </div>
             <div class="event-content">
                 <div class="event-header">
                     <span class="event-flight-badge">${escapeHtml(ev.flightNumber)}</span>
@@ -550,205 +971,37 @@ function renderEvents() {
  * Добавление нового системного события
  */
 function addAirportEvent(flightNumber, type, text) {
+
+    const now = new Date();
+    const eventDate = getCurrentMoscowDateString();
+
+    // Проверяем, не было ли уже такого события сегодня
+    const alreadyExists = EVENTS_DATA.some(event =>
+        event.flightNumber === flightNumber &&
+        event.type === type &&
+        event.text === text &&
+        (event.date || eventDate) === eventDate
+    );
+
+    if (alreadyExists) return;
+
     const newEvent = {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
+        date: eventDate,
         time: getCurrentTimeString(),
-        flightNumber,
-        type,
-        text
+        flightNumber: flightNumber,
+        type: type,
+        text: text
     };
-    // Новые события всегда сверху!
+
+    // Добавляем новое событие в начало списка
     EVENTS_DATA.unshift(newEvent);
+    saveAirportData();
     renderEvents();
+
     showToast(`📢 ${type}: ${flightNumber} — ${text}`);
 }
 
-// ==========================================================================
-// РАЗДЕЛ 10: УПРАВЛЕНИЕ И СМЕНА СТАТУСОВ РЕЙСОВ (ДЕМОНСТРАЦИЯ)
-// ==========================================================================
-function populateDemoModalFlights() {
-    demoFlightSelect.innerHTML = "";
-
-    const depGroup = document.createElement("optgroup");
-    depGroup.label = "Вылеты";
-    DEPARTURES_DATA.forEach(f => {
-        const opt = document.createElement("option");
-        opt.value = f.flightNumber;
-        opt.textContent = `Вылет: ${f.flightNumber} ➔ ${f.destination} [${f.status}]`;
-        depGroup.appendChild(opt);
-    });
-    demoFlightSelect.appendChild(depGroup);
-
-    const arrGroup = document.createElement("optgroup");
-    arrGroup.label = "Прилёты";
-    ARRIVALS_DATA.forEach(f => {
-        const opt = document.createElement("option");
-        opt.value = f.flightNumber;
-        opt.textContent = `Прилёт: ${f.flightNumber} ➔ из ${f.origin} [${f.status}]`;
-        arrGroup.appendChild(opt);
-    });
-    demoFlightSelect.appendChild(arrGroup);
-
-    updateDemoModalView();
-}
-
-function updateDemoModalView() {
-    const flightNum = demoFlightSelect.value;
-    const depFlight = DEPARTURES_DATA.find(f => f.flightNumber === flightNum);
-    const arrFlight = ARRIVALS_DATA.find(f => f.flightNumber === flightNum);
-    const flight = depFlight || arrFlight;
-
-    if (!flight) return;
-
-    const isDep = !!depFlight;
-    demoCurrentStateBadge.textContent = flight.status;
-    demoCurrentStateBadge.className = `status-badge ${getStatusCssClass(flight.status)}`;
-
-    const chain = isDep ? DEPARTURE_STATE_CHAIN : ARRIVAL_STATE_CHAIN;
-
-    demoStateChainView.innerHTML = "";
-    chain.forEach((step, idx) => {
-        const span = document.createElement("span");
-        span.className = `chain-step ${flight.status === step ? 'active' : ''}`;
-        span.textContent = step;
-        demoStateChainView.appendChild(span);
-
-        if (idx < chain.length - 1) {
-            const arrow = document.createElement("span");
-            arrow.className = "chain-arrow";
-            arrow.textContent = "➔";
-            demoStateChainView.appendChild(arrow);
-        }
-    });
-}
-
-function advanceFlightToNextState() {
-    const flightNum = demoFlightSelect.value;
-    const depFlight = DEPARTURES_DATA.find(f => f.flightNumber === flightNum);
-    const arrFlight = ARRIVALS_DATA.find(f => f.flightNumber === flightNum);
-
-    if (depFlight) {
-        const curIdx = DEPARTURE_STATE_CHAIN.indexOf(depFlight.status);
-        if (curIdx < DEPARTURE_STATE_CHAIN.length - 1) {
-            const nextStatus = DEPARTURE_STATE_CHAIN[curIdx + 1];
-            depFlight.status = nextStatus;
-            depFlight.delayReason = "";
-
-            let eventType = "Регистрация";
-            let msg = `Для рейса ${depFlight.flightNumber} статус изменен на: ${nextStatus}`;
-            if (nextStatus === "Регистрация") {
-                eventType = "Регистрация";
-                msg = `Началась регистрация на рейс ${depFlight.flightNumber} в ${depFlight.destination}, стойки ${depFlight.checkinDesks}`;
-            } else if (nextStatus === "Посадка") {
-                eventType = "Посадка";
-                msg = `Началась посадка на рейс ${depFlight.flightNumber} в ${depFlight.destination}, выход ${depFlight.gate}`;
-            } else if (nextStatus === "Вылетел") {
-                eventType = "Вылет";
-                msg = `Рейс ${depFlight.flightNumber} вылетел в ${depFlight.destination}`;
-            }
-
-            addAirportEvent(depFlight.flightNumber, eventType, msg);
-        } else {
-            showToast(`Рейс ${depFlight.flightNumber} уже находится в финальном состоянии (${depFlight.status})`);
-        }
-    } else if (arrFlight) {
-        const curIdx = ARRIVAL_STATE_CHAIN.indexOf(arrFlight.status);
-        if (curIdx < ARRIVAL_STATE_CHAIN.length - 1) {
-            const nextStatus = ARRIVAL_STATE_CHAIN[curIdx + 1];
-            arrFlight.status = nextStatus;
-            arrFlight.delayReason = "";
-
-            let eventType = "Прибытие";
-            let msg = `Для рейса ${arrFlight.flightNumber} статус изменен на: ${nextStatus}`;
-
-            if (nextStatus === "Приземлился") {
-                eventType = "Прибытие";
-                msg = `Рейс ${arrFlight.flightNumber} из ${arrFlight.origin} совершил посадку`;
-            } else if (nextStatus === "Выдача багажа") {
-                eventType = "Выдача багажа";
-                if (!arrFlight.baggageBelt || arrFlight.baggageBelt === "—") arrFlight.baggageBelt = "Лента №2";
-                msg = `Для рейса ${arrFlight.flightNumber} началась выдача багажа на ${arrFlight.baggageBelt}`;
-            } else if (nextStatus === "Завершён") {
-                eventType = "Прибытие";
-                msg = `Обслуживание рейса ${arrFlight.flightNumber} из ${arrFlight.origin} завершено`;
-            }
-
-            addAirportEvent(arrFlight.flightNumber, eventType, msg);
-        } else {
-            showToast(`Рейс ${arrFlight.flightNumber} уже завершён (${arrFlight.status})`);
-        }
-    }
-
-    refreshAllViews();
-    updateDemoModalView();
-}
-
-function triggerFlightDelay() {
-    const flightNum = demoFlightSelect.value;
-    const depFlight = DEPARTURES_DATA.find(f => f.flightNumber === flightNum);
-    const arrFlight = ARRIVALS_DATA.find(f => f.flightNumber === flightNum);
-    const flight = depFlight || arrFlight;
-
-    if (!flight) return;
-
-    flight.status = depFlight ? "Задержан" : "Задерживается";
-    flight.delayReason = "Техническая подготовка борта и загрузка питания";
-    flight.actualTime = "17:45";
-
-    addAirportEvent(
-        flight.flightNumber,
-        "Задержка",
-        `Рейс ${flight.flightNumber} задержан до ${flight.actualTime}. Причина: ${flight.delayReason}`
-    );
-
-    refreshAllViews();
-    updateDemoModalView();
-}
-
-function triggerFlightCancel() {
-    const flightNum = demoFlightSelect.value;
-    const depFlight = DEPARTURES_DATA.find(f => f.flightNumber === flightNum);
-    const arrFlight = ARRIVALS_DATA.find(f => f.flightNumber === flightNum);
-    const flight = depFlight || arrFlight;
-
-    if (!flight) return;
-
-    flight.status = "Отменён";
-    flight.delayReason = "Неблагоприятные метеоусловия по маршруту следования";
-    flight.actualTime = "—";
-
-    addAirportEvent(
-        flight.flightNumber,
-        "Отмена",
-        `Внимание! Рейс ${flight.flightNumber} отменён по метеоусловиям. Пассажирам обратиться к стойке представителя`
-    );
-
-    refreshAllViews();
-    updateDemoModalView();
-}
-
-function triggerGateChange() {
-    const flightNum = demoFlightSelect.value;
-    const depFlight = DEPARTURES_DATA.find(f => f.flightNumber === flightNum);
-
-    if (!depFlight) {
-        showToast("Смена выхода применима только к вылетающим рейсам!");
-        return;
-    }
-
-    const oldGate = depFlight.gate;
-    const newGate = oldGate === "B15" ? "A02" : "B15";
-    depFlight.gate = newGate;
-
-    addAirportEvent(
-        depFlight.flightNumber,
-        "Посадка",
-        `Выход на посадку рейса ${depFlight.flightNumber} в ${depFlight.destination} изменён с ${oldGate} на ${newGate}`
-    );
-
-    refreshAllViews();
-    updateDemoModalView();
-}
 
 // ==========================================================================
 // РАЗДЕЛ 11: НАВИГАЦИЯ МЕЖДУ РАЗДЕЛАМИ
@@ -769,6 +1022,9 @@ function switchTab(targetTabName) {
             content.classList.remove("active");
         }
     });
+    if (targetTabName === "map") {
+        renderFlightMap();
+    }
 }
 
 window.switchTabAndSelectFlight = function(tabName) {
@@ -781,6 +1037,298 @@ function refreshAllViews() {
     renderEvents();
     if (document.getElementById("searchSection").classList.contains("active")) {
         performGlobalSearch();
+    }
+    if (document.getElementById("mapSection").classList.contains("active")) {
+        renderFlightMap();
+    }
+}
+// ======================================================
+// АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ СТАТУСОВ ПО ВРЕМЕНИ
+// ======================================================
+
+// Преобразуем дату рейса в timestamp
+function getFlightTimestamp(value) {
+    if (!value) return null;
+
+    const timestamp = new Date(value).getTime();
+
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+
+// Пропускаем создание событий при первой проверке,
+// чтобы не создавать лишние уведомления при запуске сайта
+let isFirstAutomaticStatusCheck = true;
+
+
+// Форматирование времени по московскому часовому поясу
+function formatMoscowTimeFromTimestamp(timestamp) {
+    return new Intl.DateTimeFormat("ru-RU", {
+        timeZone: "Europe/Moscow",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+    }).format(new Date(timestamp));
+}
+// ======================================================
+// АВТОМАТИЧЕСКОЕ УПРАВЛЕНИЕ СОСТОЯНИЯМИ РЕЙСОВ
+// ======================================================
+
+function updateFlightStatusesByTime(now = Date.now()) {
+
+    let departuresChanged = false;
+    let arrivalsChanged = false;
+
+    // При первом запуске не создаём массовые события
+    const createEvents = !isFirstAutomaticStatusCheck;
+
+    const MINUTE = 60 * 1000;
+
+    // ==================================================
+    // 1. АВТОМАТИЗАЦИЯ ВЫЛЕТАЮЩИХ РЕЙСОВ
+    // ==================================================
+
+    DEPARTURES_DATA.forEach(flight => {
+
+        // Отменённые рейсы не участвуют в автоматизации
+        if (flight.isCancelled || flight.status === "Отменён") {
+            flight.status = "Отменён";
+            return;
+        }
+
+        const expectedTime = getFlightTimestamp(
+            flight.expectedDepartureAt || flight.scheduledAt
+        );
+
+        if (expectedTime === null) return;
+
+        // Временные границы технологических этапов
+        const checkinOpen = expectedTime - 120 * MINUTE;
+        const checkinClose = expectedTime - 40 * MINUTE;
+        const boardingStart = expectedTime - 30 * MINUTE;
+
+        let newStatus;
+
+        // Определяем состояние по текущему времени
+        if (now >= expectedTime) {
+            newStatus = "Вылетел";
+        }
+        else if (now >= boardingStart) {
+            newStatus = "Посадка";
+        }
+        else if (now >= checkinClose) {
+            newStatus = "Регистрация завершена";
+        }
+        else if (now >= checkinOpen) {
+            newStatus = "Регистрация";
+        }
+        else if (flight.isDelayed) {
+            newStatus = "Задержан";
+        }
+        else {
+            newStatus = "По расписанию";
+        }
+
+        const oldStatus = flight.status;
+
+        if (oldStatus !== newStatus) {
+
+            flight.status = newStatus;
+            departuresChanged = true;
+
+            // Фиксируем имитируемое фактическое время вылета
+            if (newStatus === "Вылетел") {
+                flight.actualDepartureAt =
+                    new Date(expectedTime).toISOString();
+
+                flight.actualTime =
+                    formatMoscowTimeFromTimestamp(expectedTime);
+            }
+
+            // Формируем информационное событие
+            if (createEvents) {
+
+                let eventType = "Вылет";
+                let message = "";
+
+                switch (newStatus) {
+
+                    case "Задержан":
+                        eventType = "Задержка";
+                        message = `Рейс ${flight.flightNumber} в ${flight.destination} задерживается. ${flight.delayReason}`;
+                        break;
+
+                    case "Регистрация":
+                        eventType = "Регистрация";
+                        message = `Началась регистрация на рейс ${flight.flightNumber} в ${flight.destination}. Стойки ${flight.checkinDesks}`;
+                        break;
+
+                    case "Регистрация завершена":
+                        eventType = "Регистрация";
+                        message = `Регистрация на рейс ${flight.flightNumber} завершена`;
+                        break;
+
+                    case "Посадка":
+                        eventType = "Посадка";
+                        message = `Началась посадка на рейс ${flight.flightNumber} в ${flight.destination}. Выход ${flight.gate}`;
+                        break;
+
+                    case "Вылетел":
+                        eventType = "Вылет";
+                        message = `Рейс ${flight.flightNumber} вылетел в ${flight.destination}`;
+                        break;
+                }
+
+                if (message) {
+                    addAirportEvent(
+                        flight.flightNumber,
+                        eventType,
+                        message
+                    );
+                }
+            }
+        }
+
+        // Сохраняем время фактического вылета и для рейсов,
+        // которые уже находились в этом состоянии при запуске
+        if (newStatus === "Вылетел" && !flight.actualDepartureAt) {
+            flight.actualDepartureAt =
+                new Date(expectedTime).toISOString();
+
+            flight.actualTime =
+                formatMoscowTimeFromTimestamp(expectedTime);
+        }
+    });
+
+
+    // ==================================================
+    // 2. АВТОМАТИЗАЦИЯ ПРИБЫВАЮЩИХ РЕЙСОВ
+    // ==================================================
+
+    ARRIVALS_DATA.forEach(flight => {
+
+        // Отменённые рейсы не участвуют в автоматизации
+        if (flight.isCancelled || flight.status === "Отменён") {
+            flight.status = "Отменён";
+            return;
+        }
+
+        const expectedTime = getFlightTimestamp(
+            flight.expectedArrivalAt || flight.scheduledAt
+        );
+
+        if (expectedTime === null) return;
+
+        // Временные границы обслуживания прибывшего рейса
+        const baggageStart = expectedTime + 15 * MINUTE;
+        const serviceEnd = expectedTime + 45 * MINUTE;
+
+        let newStatus;
+
+        if (now >= serviceEnd) {
+            newStatus = "Завершён";
+        }
+        else if (now >= baggageStart) {
+            newStatus = "Выдача багажа";
+        }
+        else if (now >= expectedTime) {
+            newStatus = "Приземлился";
+        }
+        else if (flight.isDelayed) {
+            newStatus = "Задерживается";
+        }
+        else {
+            newStatus = "По расписанию";
+        }
+
+        const oldStatus = flight.status;
+
+        // Фиксируем имитируемое фактическое время прибытия
+        if (
+            ["Приземлился", "Выдача багажа", "Завершён"]
+                .includes(newStatus) &&
+            !flight.actualArrivalAt
+        ) {
+            flight.actualArrivalAt =
+                new Date(expectedTime).toISOString();
+
+            flight.actualTime =
+                formatMoscowTimeFromTimestamp(expectedTime);
+        }
+
+        // При начале выдачи багажа проверяем наличие ленты
+        if (
+            ["Выдача багажа", "Завершён"].includes(newStatus) &&
+            (!flight.baggageBelt || flight.baggageBelt === "—")
+        ) {
+            flight.baggageBelt = "Уточняется";
+        }
+
+        if (oldStatus !== newStatus) {
+
+            flight.status = newStatus;
+            arrivalsChanged = true;
+
+            // Формируем информационное событие
+            if (createEvents) {
+
+                let eventType = "Прибытие";
+                let message = "";
+
+                switch (newStatus) {
+
+                    case "Задерживается":
+                        eventType = "Задержка";
+                        message = `Рейс ${flight.flightNumber} из ${flight.origin} задерживается. ${flight.delayReason}`;
+                        break;
+
+                    case "Приземлился":
+                        eventType = "Прибытие";
+                        message = `Рейс ${flight.flightNumber} из ${flight.origin} приземлился`;
+                        break;
+
+                    case "Выдача багажа":
+                        eventType = "Выдача багажа";
+                        message = `Началась выдача багажа рейса ${flight.flightNumber}. Лента: ${flight.baggageBelt}`;
+                        break;
+
+                    case "Завершён":
+                        eventType = "Прибытие";
+                        message = `Обслуживание рейса ${flight.flightNumber} завершено`;
+                        break;
+                }
+
+                if (message) {
+                    addAirportEvent(
+                        flight.flightNumber,
+                        eventType,
+                        message
+                    );
+                }
+            }
+        }
+    });
+
+
+    // ==================================================
+    // 3. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА
+    // ==================================================
+
+    isFirstAutomaticStatusCheck = false;
+
+    if (departuresChanged || arrivalsChanged) {
+
+        const updateTime = getCurrentTimeString();
+
+        if (departuresChanged) {
+            depLastUpdateTime.textContent = updateTime;
+        }
+
+        if (arrivalsChanged) {
+            arrLastUpdateTime.textContent = updateTime;
+        }
+        saveAirportData();
+        refreshAllViews();
     }
 }
 
@@ -805,9 +1353,15 @@ depClearSearchBtn.addEventListener("click", () => {
 depStatusFilter.addEventListener("change", renderDepartures);
 depRefreshBtn.addEventListener("click", () => {
     depRefreshBtn.classList.add("spinning");
+
+    // Проверяем актуальные состояния всех рейсов
+    updateFlightStatusesByTime();
+
     depLastUpdateTime.textContent = getCurrentTimeString();
+
+    renderDepartures();
+
     setTimeout(() => {
-        renderDepartures();
         depRefreshBtn.classList.remove("spinning");
         showToast("Табло вылетов обновлено");
     }, 250);
@@ -823,9 +1377,15 @@ arrClearSearchBtn.addEventListener("click", () => {
 arrStatusFilter.addEventListener("change", renderArrivals);
 arrRefreshBtn.addEventListener("click", () => {
     arrRefreshBtn.classList.add("spinning");
+
+    // Проверяем актуальные состояния всех рейсов
+    updateFlightStatusesByTime();
+
     arrLastUpdateTime.textContent = getCurrentTimeString();
+
+    renderArrivals();
+
     setTimeout(() => {
-        renderArrivals();
         arrRefreshBtn.classList.remove("spinning");
         showToast("Табло прилётов обновлено");
     }, 250);
@@ -841,44 +1401,41 @@ quickTags.forEach(tag => {
         performGlobalSearch(query);
     });
 });
-
+// Карта полёта
+flightMapSelect.addEventListener("change", renderFlightMap);
 // Лента информации
 eventCategoryFilter.addEventListener("change", renderEvents);
 
-// Модальное окно демо
-openDemoBtn.addEventListener("click", () => {
-    populateDemoModalFlights();
-    demoModal.style.display = "flex";
-});
-closeDemoModalBtn.addEventListener("click", () => demoModal.style.display = "none");
-closeDemoModalFooterBtn.addEventListener("click", () => demoModal.style.display = "none");
-demoFlightSelect.addEventListener("change", updateDemoModalView);
-demoNextStepBtn.addEventListener("click", advanceFlightToNextState);
-demoDelayBtn.addEventListener("click", triggerFlightDelay);
-demoCancelBtn.addEventListener("click", triggerFlightCancel);
-demoGateChangeBtn.addEventListener("click", triggerGateChange);
 
-// Закрытие модального окна по клику вне контента
-window.addEventListener("click", (e) => {
-    if (e.target === demoModal) {
-        demoModal.style.display = "none";
-    }
-});
 
 // ==========================================================================
 // РАЗДЕЛ 13: ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ
 // ==========================================================================
 function initApp() {
+    // Загружаем сохранённые данные до отображения табло
+    loadAirportData();
+
+    // Обновление часов каждую секунду
     updateClock();
     setInterval(updateClock, 1000);
 
     const startTime = getCurrentTimeString();
+
     depLastUpdateTime.textContent = startTime;
     arrLastUpdateTime.textContent = startTime;
 
+    // Первоначальное отображение данных
     renderDepartures();
     renderArrivals();
     renderEvents();
+
+    // Первая проверка статусов при открытии приложения
+    updateFlightStatusesByTime();
+
+    // Повторная проверка каждую минуту
+    setInterval(updateFlightStatusesByTime, 60 * 1000);
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
+
+
